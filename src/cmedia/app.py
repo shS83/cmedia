@@ -18,6 +18,8 @@ import time
 import tty
 import zlib
 from pathlib import Path
+import platform
+
 
 IMAGES = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tif', '.tiff', '.webp', '.avif'}
 VIDEOS = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpeg', '.mpg'}
@@ -42,6 +44,34 @@ def entries(directory: Path) -> list[Path]:
         raise RuntimeError(f'Hakemistoa ei voi lukea: {exc}') from exc
     return sorted(paths, key=lambda p: (not p.is_dir(), p.name.casefold()))
 
+def is_wsl() -> bool:
+    if platform.system() != "Linux":
+        return False
+
+    if os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"):
+        return True
+
+    try:
+        return "microsoft" in Path("/proc/version").read_text().lower()
+    except OSError:
+        return False
+
+
+def is_windows_terminal() -> bool:
+    return bool(os.environ.get("WT_SESSION"))
+
+
+def chafa_format() -> str:
+    if is_windows_terminal():
+        return "sixels"
+
+    if is_wsl():
+        return "sixels"
+
+    if os.environ.get("TERM", "").startswith("xterm-kitty"):
+        return "kitty"
+
+    return "symbols"
 
 def graphics_format(choice: str) -> str:
     if choice != 'auto':
@@ -51,7 +81,8 @@ def graphics_format(choice: str) -> str:
         return 'kitty'
     if 'sixel' in term or 'mlterm' in term or term.startswith('foot'):
         return 'sixels'
-    return 'symbols'
+
+    return chafa_format()
 
 
 def safe_text(value: object) -> str:
